@@ -13,25 +13,45 @@ app.get('/', (req, res) => {
 })
 
 const table = "person";
+
+var answer = {
+    "contact": {
+        "primaryContatctId": '',
+        "emails": [],
+        "phoneNumbers": [],
+        "secondaryContactIds": []
+    }
+}
 app.post('/identify', async (req, res) => {
     console.log(req.body);
     const { email, phoneNumber } = req.body;
 
-    const query = 'SELECT * FROM $1 WHERE email = $2 OR phoneNumber = $3'
-    const values = [table, email, phoneNumber];
+    const query = "SELECT * FROM person WHERE (email = ($1) OR phoneNumber = ($2)) AND linkPrecedence = 'primary'"
+    // const query = "SELECT * FROM $1";
+    const values = [email, phoneNumber];
 
     await client.connect();
 
-    client.query('select * from person', [], (err, result) => {
-        if (err) {
-            console.error('Error executing query:', err);
-            return res.status(500).json({ error: 'An error occurred while processing the request' });
-        }
+    const result = await client.query(query, values);
 
-        console.log(result);
-        client.end();
-        return res.status(200).json(result.rows);
-    })
+    if (result.rows.length == 0) {
+        const insertQuery0 = "INSERT INTO person(phoneNumber, email, linkedId, linkPrecedence) VALUES ($1, $2, $3, $4)";
+        const values0 = [phoneNumber, email, null, 'primary'];
+        await client.query(insertQuery0, values0);
+    }
+    else if (result.rows.length == 1) {
+        const insertQuery1 = "INSERT INTO person(phoneNumber, email, linkedId, linkPrecedence) VALUES ($1, $2, $3, $4)";
+        const values1 = [phoneNumber, email, result.rows[0].id, 'secondary'];
+        await client.query(insertQuery1, values1);
+    }
+    else {
+
+    }
+
+    console.log(result.rows);
+    client.end();
+    return res.status(200).json(result.rows);
+
 })
 
 app.listen(port, (err) => {

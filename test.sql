@@ -5,5 +5,7 @@ CREATE TABLE person(
     phoneNumber TEXT,
     email TEXT,
     linkedId INTEGER,
-    linkPrecedence linkedtype
+    linkPrecedence linkedtype,
+    createdAt TIMESTAMP DEFAULT NOW() NOT NULL,
+    updatedAt TIMESTAMP DEFAULT NOW() NOT NULL
 )
