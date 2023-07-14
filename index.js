@@ -4,41 +4,31 @@ const port = 8000;
 
 const bodyParser = require('body-parser');
 app.use(bodyParser.json());
-const Client = require('pg').Client;
 
-const config = require('./db');
+require('dotenv').config();
+// importing connected client
+const client = require('./db');
 
-
+// dummy home page
 app.get('/', (req, res) => {
     res.send('Hello!')
 })
-
-const table = "person";
-
+// identify route
 app.post('/identify', async (req, res) => {
 
-    const client = new Client(config);
+    const { email, phoneNumber } = req.body;    // fetching the data from request body
 
-    const { email, phoneNumber } = req.body;
-
-    if (email == undefined || phoneNumber == undefined) {
+    if (email == undefined && phoneNumber == undefined) {   // any one of the contact detail needed
         return res.status(500).send('Send valid contact details.')
     }
-
+    // query to check number of primary ids registered on the given contact details
     const query = "SELECT * FROM person WHERE (email = ($1) OR phoneNumber = ($2)) AND linkPrecedence = 'primary'"
 
     const values = [email, phoneNumber];
 
     try {
-        await client.connect();
-    }
-    catch (err) {
-        return res.status(500).send('Error connecting to database.');
-    }
-
-    try {
         const result = await client.query(query, values);
-
+        // if result length is 0. it means not previously registered. therefore linkPrecedence = 'Primary'
         if (result.rows.length == 0) {
             const insertQuery0 = "INSERT INTO person(phoneNumber, email, linkedId, linkPrecedence) VALUES ($1, $2, $3, $4)";
             const values0 = [phoneNumber, email, null, 'primary'];
@@ -49,17 +39,20 @@ app.post('/identify', async (req, res) => {
                 return res.status(500).send('Error inserting data');
             }
         }
-        else if (result.rows.length == 1) {
+        else if (result.rows.length == 1) { //if result length == 1. it means previously registered.
             const insertQuery1 = "INSERT INTO person(phoneNumber, email, linkedId, linkPrecedence) VALUES ($1, $2, $3, $4)";
             const values1 = [phoneNumber, email, result.rows[0].id, 'secondary'];
-            try {
-                await client.query(insertQuery1, values1);
-            }
-            catch (err) {
-                return res.status(500).send('Error in inserting the data');
+            if (phoneNumber == result.rows[0].phonenumber && email == result.rows[0].email) { }//if both contact details matches. do nothing
+            else {  // if not insert the contact details with linkPrecendence as secondary
+                try {
+                    await client.query(insertQuery1, values1);
+                }
+                catch (err) {
+                    return res.status(500).send('Error in inserting the data');
+                }
             }
         }
-        else {
+        else {  //if result length = 2. it means one one matches with phone and other with email. Now do necessary changes to link one primary entry and all its secondary entry to other primary entry.
             let ind = 1;
             let id2 = result.rows[0].id;
             if (result.rows[0].createdAt < result.rows[1].createdAt) {
@@ -82,7 +75,7 @@ app.post('/identify', async (req, res) => {
         const outQuery = "SELECT * FROM person WHERE (email = ($1) OR phoneNumber = ($2))";
         const output = await client.query(outQuery, values);
 
-        var answer = {
+        var answer = {  // output format
             "contact": {
                 "primaryContatctId": 0,
                 "emails": [],
@@ -108,8 +101,7 @@ app.post('/identify', async (req, res) => {
         answer.contact.emails = [...new Set(all_emails)];
         answer.contact.phoneNumbers = [...new Set(all_phones)];
 
-        client.end();
-        return res.status(200).json(answer);
+        return res.status(200).json(answer);     //return output with 200 status code
     }
     catch (err) {
         return res.status(500).send('Error fetching the data from database.');
