@@ -4,8 +4,9 @@ const port = 8000;
 
 const bodyParser = require('body-parser');
 app.use(bodyParser.json());
+const Client = require('pg').Client;
 
-const client = require('./db');
+const config = require('./db');
 
 
 app.get('/', (req, res) => {
@@ -23,6 +24,8 @@ var answer = {
     }
 }
 app.post('/identify', async (req, res) => {
+
+    const client = new Client(config);
     console.log(req.body);
     const { email, phoneNumber } = req.body;
 
@@ -45,7 +48,18 @@ app.post('/identify', async (req, res) => {
         await client.query(insertQuery1, values1);
     }
     else {
+        let ind = 1;
+        let id2 = result.rows[0].id;
+        if (result.rows[0].createdAt < result.rows[1].createdAt) {
+            ind = 0;
+            id2 = result.rows[1].id;
+        }
 
+        let id1 = result.rows[ind].id;
+
+        const updateQuery2 = "UPDATE person SET linkedId=$1, linkPrecedence=$2, updatedAt = NOW() WHERE (id = $3 OR linkedId = $4)";
+        const updateValues = [id1, 'secondary', id2, id2];
+        await client.query(updateQuery2, updateValues);
     }
 
     console.log(result.rows);
