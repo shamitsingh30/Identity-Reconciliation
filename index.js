@@ -15,14 +15,6 @@ app.get('/', (req, res) => {
 
 const table = "person";
 
-var answer = {
-    "contact": {
-        "primaryContatctId": '',
-        "emails": [],
-        "phoneNumbers": [],
-        "secondaryContactIds": []
-    }
-}
 app.post('/identify', async (req, res) => {
 
     const client = new Client(config);
@@ -62,9 +54,38 @@ app.post('/identify', async (req, res) => {
         await client.query(updateQuery2, updateValues);
     }
 
+    const outQuery = "SELECT * FROM person WHERE (email = ($1) OR phoneNumber = ($2))";
+    const output = await client.query(outQuery, values);
+
+    var answer = {
+        "contact": {
+            "primaryContatctId": 0,
+            "emails": [],
+            "phoneNumbers": [],
+            "secondaryContactIds": []
+        }
+    }
+
+    let all_emails = [];
+    let all_phones = [];
+
+    output.rows.forEach(obj => {
+        if (obj.linkPrecedence == 'primary') {
+            answer.contact.primaryContatctId = obj.id;
+        }
+        else {
+            answer.contact.secondaryContactIds.push(obj.id);
+        }
+        if (obj.email != null) all_emails.push(obj.email);
+        if (obj.phoneNumber != null) all_phones.push(obj.phoneNumber);
+    });
+
+    answer.contact.emails = [...new Set(all_emails)];
+    answer.contact.phoneNumbers = [...new Set(all_phones)];
+
     console.log(result.rows);
     client.end();
-    return res.status(200).json(result.rows);
+    return res.status(200).json(answer);
 
 })
 
