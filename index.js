@@ -70,14 +70,14 @@ app.post('/identify', async (req, res) => {
     let all_phones = [];
 
     output.rows.forEach(obj => {
-        if (obj.linkPrecedence == 'primary') {
+        if (obj.linkprecedence == 'primary') {
             answer.contact.primaryContatctId = obj.id;
         }
         else {
             answer.contact.secondaryContactIds.push(obj.id);
         }
         if (obj.email != null) all_emails.push(obj.email);
-        if (obj.phoneNumber != null) all_phones.push(obj.phoneNumber);
+        if (obj.phonenumber != null) all_phones.push(obj.phonenumber);
     });
 
     answer.contact.emails = [...new Set(all_emails)];
